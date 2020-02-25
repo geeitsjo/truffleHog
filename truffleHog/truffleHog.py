@@ -13,6 +13,7 @@ import tempfile
 import os
 import re
 import json
+import git
 import stat
 from git import Repo
 from git import NULL_TREE
@@ -153,7 +154,7 @@ def clone_git_repo(git_url):
     return project_path
 
 def print_results(printJson, issue):
-    commit_time = issue['date']
+    commit_time = issue['dateCommit']
     branch_name = issue['branch']
     prev_commit = issue['commit']
     printableDiff = issue['printDiff']
@@ -163,30 +164,30 @@ def print_results(printJson, issue):
 
     if printJson:
         print(json.dumps(issue, sort_keys=True))
-    else:
-        print("~~~~~~~~~~~~~~~~~~~~~")
-        reason = "{}Reason: {}{}".format(bcolors.OKGREEN, reason, bcolors.ENDC)
-        print(reason)
-        dateStr = "{}Date: {}{}".format(bcolors.OKGREEN, commit_time, bcolors.ENDC)
-        print(dateStr)
-        hashStr = "{}Hash: {}{}".format(bcolors.OKGREEN, commitHash, bcolors.ENDC)
-        print(hashStr)
-        filePath = "{}Filepath: {}{}".format(bcolors.OKGREEN, path, bcolors.ENDC)
-        print(filePath)
+    # else:
+    #     print("~~~~~~~~~~~~~~~~~~~~~")
+    #     reason = "{}Reason: {}{}".format(bcolors.OKGREEN, reason, bcolors.ENDC)
+    #     print(reason)
+    #     dateStr = "{}Date: {}{}".format(bcolors.OKGREEN, commit_time, bcolors.ENDC)
+    #     print(dateStr)
+    #     hashStr = "{}Hash: {}{}".format(bcolors.OKGREEN, commitHash, bcolors.ENDC)
+    #     print(hashStr)
+    #     filePath = "{}Filepath: {}{}".format(bcolors.OKGREEN, path, bcolors.ENDC)
+    #     print(filePath)
 
-        if sys.version_info >= (3, 0):
-            branchStr = "{}Branch: {}{}".format(bcolors.OKGREEN, branch_name, bcolors.ENDC)
-            print(branchStr)
-            commitStr = "{}Commit: {}{}".format(bcolors.OKGREEN, prev_commit, bcolors.ENDC)
-            print(commitStr)
-            print(printableDiff)
-        else:
-            branchStr = "{}Branch: {}{}".format(bcolors.OKGREEN, branch_name.encode('utf-8'), bcolors.ENDC)
-            print(branchStr)
-            commitStr = "{}Commit: {}{}".format(bcolors.OKGREEN, prev_commit.encode('utf-8'), bcolors.ENDC)
-            print(commitStr)
-            print(printableDiff.encode('utf-8'))
-        print("~~~~~~~~~~~~~~~~~~~~~")
+    #     if sys.version_info >= (3, 0):
+    #         branchStr = "{}Branch: {}{}".format(bcolors.OKGREEN, branch_name, bcolors.ENDC)
+    #         print(branchStr)
+    #         commitStr = "{}Commit: {}{}".format(bcolors.OKGREEN, prev_commit, bcolors.ENDC)
+    #         print(commitStr)
+    #         print(printableDiff)
+    #     else:
+    #         branchStr = "{}Branch: {}{}".format(bcolors.OKGREEN, branch_name.encode('utf-8'), bcolors.ENDC)
+    #         print(branchStr)
+    #         commitStr = "{}Commit: {}{}".format(bcolors.OKGREEN, prev_commit.encode('utf-8'), bcolors.ENDC)
+    #         print(commitStr)
+    #         print(printableDiff.encode('utf-8'))
+    #     print("~~~~~~~~~~~~~~~~~~~~~")
 
 def find_entropy(printableDiff, commit_time, branch_name, prev_commit, blob, commitHash):
     stringsFound = []
@@ -208,15 +209,16 @@ def find_entropy(printableDiff, commit_time, branch_name, prev_commit, blob, com
     entropicDiff = None
     if len(stringsFound) > 0:
         entropicDiff = {}
-        entropicDiff['date'] = commit_time
+        entropicDiff['dateCommit'] = commit_time
         entropicDiff['path'] = blob.b_path if blob.b_path else blob.a_path
         entropicDiff['branch'] = branch_name
         entropicDiff['commit'] = prev_commit.message
-        entropicDiff['diff'] = blob.diff.decode('utf-8', errors='replace')
         entropicDiff['stringsFound'] = stringsFound
         entropicDiff['printDiff'] = printableDiff
         entropicDiff['commitHash'] = prev_commit.hexsha
         entropicDiff['reason'] = "High Entropy"
+        entropicDiff['author'] = "'{}'".format(prev_commit.author.email)
+        entropicDiff['authorEmail'] = "'{}'".format(prev_commit.author)
     return entropicDiff
 
 def regex_check(printableDiff, commit_time, branch_name, prev_commit, blob, commitHash, custom_regexes={}):
@@ -231,15 +233,17 @@ def regex_check(printableDiff, commit_time, branch_name, prev_commit, blob, comm
             found_diff = printableDiff.replace(printableDiff, bcolors.WARNING + found_string + bcolors.ENDC)
         if found_strings:
             foundRegex = {}
-            foundRegex['date'] = commit_time
+            foundRegex['dateCommit'] = commit_time
             foundRegex['path'] = blob.b_path if blob.b_path else blob.a_path
             foundRegex['branch'] = branch_name
             foundRegex['commit'] = prev_commit.message
-            foundRegex['diff'] = blob.diff.decode('utf-8', errors='replace')
             foundRegex['stringsFound'] = found_strings
             foundRegex['printDiff'] = found_diff
             foundRegex['reason'] = key
             foundRegex['commitHash'] = prev_commit.hexsha
+            foundRegex['author'] = "'{}'".format(prev_commit.author.email)
+            foundRegex['authorEmail'] = "'{}'".format(prev_commit.author)
+            foundRegex['repo'] = "'{}'".format(prev_commit.repo)
             regex_matches.append(foundRegex)
     return regex_matches
 
